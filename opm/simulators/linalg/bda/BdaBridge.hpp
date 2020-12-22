@@ -36,6 +36,10 @@
 #include <opm/simulators/linalg/bda/openclSolverBackend.hpp>
 #endif
 
+#if HAVE_FPGA
+#include <opm/simulators/linalg/bda/FPGASolverBackend.hpp>
+#endif
+
 namespace Opm
 {
 
@@ -48,18 +52,21 @@ class BdaBridge
 {
 private:
     bool use_gpu = false;
+    bool use_fpga = false;
     std::unique_ptr<bda::BdaSolver<block_size> > backend;
 
 public:
     /// Construct a BdaBridge
-    /// \param[in] gpu_mode                   to select if a gpu solver is used, is passed via command-line: '--gpu-mode=[none|cusparse|opencl]'
+    /// \param[in] accelerator_mode           to select if an accelerated solver is used, is passed via command-line: '--accelerator-mode=[none|cusparse|opencl|fpga]'
+    /// \param[in] fpga_bitstream             FPGA programming bitstream file name, is passed via command-line: '--fpga-bitstream=[<filename>]'
     /// \param[in] linear_solver_verbosity    verbosity of BdaSolver
     /// \param[in] maxit                      maximum number of iterations for BdaSolver
     /// \param[in] tolerance                  required relative tolerance for BdaSolver
     /// \param[in] platformID                 the OpenCL platform ID to be used
     /// \param[in] deviceID                   the device ID to be used by the cusparse- and openclSolvers, too high values could cause runtime errors
-    /// \param[in] opencl_ilu_reorder         select either level_scheduling or graph_coloring, see BILU0.hpp for explanation
-    BdaBridge(std::string gpu_mode, int linear_solver_verbosity, int maxit, double tolerance, unsigned int platformID, unsigned int deviceID, std::string opencl_ilu_reorder);
+    /// \param[in] opencl_ilu_reorder         select either level_scheduling or graph_coloring, see ILUReorder.hpp for explanation
+    BdaBridge(std::string accelerator_mode, std::string fpga_bitstream, int linear_solver_verbosity, int maxit, double tolerance, unsigned int platformID, unsigned int deviceID, std::string opencl_ilu_reorder);
+
 
     /// Solve linear system, A*x = b
     /// \warning Values of A might get overwritten!
@@ -77,6 +84,12 @@ public:
     /// return whether the BdaBridge will use the GPU or not
     bool getUseGpu(){
         return use_gpu;
+    }
+
+    /// Return whether the BdaBridge will use the FPGA or not
+    /// return whether the BdaBridge will use the FPGA or not
+    bool getUseFpga(){
+        return use_fpga;
     }
 
     const bda::BdaSolver<block_size>& getBackend() const {

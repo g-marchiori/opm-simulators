@@ -132,6 +132,35 @@ if(CUDA_FOUND)
   include_directories(${CUDA_INCLUDE_DIRS})
 endif()
 
+# include FPGA target only when CMAKE_ENABLE_FPGA is set to true
+if(CMAKE_ENABLE_FPGA)
+  find_file(CL_HPP CL/opencl.h)
+  if(NOT CL_HPP)
+    set(HAVE_FPGA 0)
+    message(WARNING " OpenCL headers were not found, deactivating FPGA target.")
+  else()
+    set(HAVE_FPGA 1)
+    add_compile_options(-DPORTS_CONFIG=PORTS_2r_3r3w_ddr)  # selects the kernel's memory ports configuration; must be in sync with available kernel bitstream
+    add_compile_options(-DBDA_DEBUG_LEVEL=0)  # set debug messages level for FPGA library functions (should be set to 0 for Release build)
+    # include directories for the FPGA library
+    include_directories(${_modules_dir}/opm-simulators/opm/simulators/linalg/bda/fpga/src/sda_app)
+    include_directories(${_modules_dir}/opm-simulators/opm/simulators/linalg/bda/fpga/src/sda_app/common)
+    # add external project to compile the FPGA library
+    include (ExternalProject)
+    ExternalProject_Add(FPGA_library
+      SOURCE_DIR ${_modules_dir}/opm-simulators/opm/simulators/linalg/bda/fpga/alveo_u280/vitis_20192/OPM-integration
+      BUILD_IN_SOURCE 1
+      # force the build step to always be run because source dependencies cannot be made explicit
+      BUILD_ALWAYS 1
+      DOWNLOAD_COMMAND ""
+      UPDATE_COMMAND ""
+      CONFIGURE_COMMAND ""
+      BUILD_COMMAND make
+      INSTALL_COMMAND ""
+      TEST_COMMAND ""
+    )
+  endif()
+endif()
 
 find_package(OpenCL)
 
@@ -434,7 +463,8 @@ endif()
 
 add_custom_target(extra_test ${CMAKE_CTEST_COMMAND} -C ExtraTests)
 
-# must link libraries after target 'flow' has been defined
+# must link libraries after target 'opmsimulators' has been defined
+
 if(CUDA_FOUND)
   target_link_libraries( opmsimulators PUBLIC ${CUDA_cusparse_LIBRARY} )
   target_link_libraries( opmsimulators PUBLIC ${CUDA_cublas_LIBRARY} )
@@ -442,4 +472,14 @@ endif()
 
 if(OpenCL_FOUND)
   target_link_libraries( opmsimulators ${OpenCL_LIBRARIES} )
+endif()
+
+if(HAVE_FPGA)
+  add_dependencies(opmsimulators FPGA_library)
+  target_link_libraries( opmsimulators PUBLIC ${_modules_dir}/opm-simulators/opm/simulators/linalg/bda/fpga/alveo_u280/vitis_20192/OPM-integration/fpga_lib_alveo_u280.a )
+  # link Xilinx-specific OpenCL library if OpenCL not found
+  if (NOT OpenCL_FOUND)
+    # used here is the default installation path for the library, change as needed
+    target_link_libraries( opmsimulators PUBLIC /opt/xilinx/xrt/lib/libxilinxopencl.so )
+  endif()
 endif()
