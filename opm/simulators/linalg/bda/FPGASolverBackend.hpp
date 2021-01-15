@@ -20,25 +20,12 @@
 #ifndef OPM_FPGASOLVER_BACKEND_HEADER_INCLUDED
 #define OPM_FPGASOLVER_BACKEND_HEADER_INCLUDED
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <sys/time.h>
-
-#include <opm/simulators/linalg/bda/BdaResult.hpp>
 #include <opm/simulators/linalg/bda/BdaSolver.hpp>
-#include <opm/simulators/linalg/bda/ILUReorder.hpp>
-#include <opm/simulators/linalg/bda/FPGABlockedMatrix.hpp>
-#include <opm/simulators/linalg/bda/FPGAUtils.hpp>
 #include <opm/simulators/linalg/bda/FPGABILU0.hpp>
-#include <opm/simulators/linalg/bda/fpga/src/sda_app/bicgstab_solver_config.hpp>
-#include <opm/simulators/linalg/bda/fpga/src/sda_app/common/opencl_lib.hpp>
-#include <opm/simulators/linalg/bda/fpga/src/sda_app/common/dev_config.hpp>
-#include <opm/simulators/linalg/bda/fpga/src/sda_app/common/fpga_functions_bicgstab.hpp>
 
-// how many performance records will be stored
-#define PERF_RECORDS 1000000
+#include <linearalgebra/ilu0bicgstab/xilinx/src/sda_app/bicgstab_solver_config.hpp>
+#include <linearalgebra/ilu0bicgstab/xilinx/src/sda_app/common/opencl_lib.hpp>
+#include <linearalgebra/ilu0bicgstab/xilinx/src/sda_app/common/fpga_functions_bicgstab.hpp>
 
 namespace bda
 {
@@ -151,7 +138,7 @@ private:
     int sequence = 0;
     // TODO: these values may be sent via command line parameters
     unsigned int abort_cycles = 2000000000; // 2x10^9 @ 300MHz is around 6.6 s
-    unsigned int debug_sample_rate = 65535; // max value allowed is 65535
+    unsigned int debug_sample_rate = 65535; // max value allowed is 65535, 0 means disabled; reduce to get a finer debug dump
     int *nnzValArrays_sizes = NULL;
     int *L_nnzValArrays_sizes = NULL;
     int *U_nnzValArrays_sizes = NULL;
@@ -206,8 +193,10 @@ private:
     // debug
     bool reset_data_buffers = false;
     bool fill_results_buffers = false;
-    int dump_data_buffers = 0; // 0=disabled, 1=binary format, 2=text format - active only when BDA_DEBUG_LEVEL>=2
+    int dump_data_buffers = 0; // 0=disabled, 1=binary format, 2=text format
     bool dump_results = false;
+    char *data_dir = nullptr;
+    char *basename = nullptr;
     unsigned short rst_assert_cycles = 0;
     unsigned short rst_settle_cycles = 0;
 
