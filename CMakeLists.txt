@@ -29,6 +29,7 @@ option(BUILD_EBOS_DEBUG_EXTENSIONS "Build the ebos variants which are purely for
 option(BUILD_FLOW_POLY_GRID "Build flow blackoil with polyhedral grid" OFF)
 option(OPM_ENABLE_PYTHON "Enable python bindings?" OFF)
 option(OPM_ENABLE_PYTHON_TESTS "Enable tests for the python bindings?" ON)
+option(ENABLE_FPGA "Enable FPGA kernels integration?" OFF)
 
 if(SIBLING_SEARCH AND NOT opm-common_DIR)
   # guess the sibling dir
@@ -132,37 +133,69 @@ if(CUDA_FOUND)
   include_directories(${CUDA_INCLUDE_DIRS})
 endif()
 
-# include FPGA target only when CMAKE_ENABLE_FPGA is set to true
-if(CMAKE_ENABLE_FPGA)
-  find_file(CL_HPP CL/opencl.h)
-  if(NOT CL_HPP)
+find_package(OpenCL)
+
+# include FPGA target only when ENABLE_FPGA is set to ON
+if(ENABLE_FPGA)
+  # must include opencl.h which is a wrapper for all the OpenCL extensions
+  find_file(OPENCL_H CL/opencl.h HINTS ${OpenCL_INCLUDE_DIRS})
+
+  # FIXME: devise a check for the presence of the "FPGA" module; currently looking for makefile in <opm-simulators>/../FPGA
+  find_file(FPGA_MODULE linearalgebra/ilu0bicgstab/xilinx/alveo_u280/vitis_20192/OPM-integration/makefile HINTS ${opm-simulators_SOURCE_DIR}/../FPGA)
+
+  if(NOT OPENCL_H OR NOT OpenCL_FOUND)
     set(HAVE_FPGA 0)
-    message(WARNING " OpenCL headers were not found, deactivating FPGA target.")
+    message(WARNING " OpenCL packages/headers were not found, deactivating FPGA target.")
+  elseif(NOT FPGA_MODULE)
+    set(HAVE_FPGA 0)
+    message(WARNING " FPGA module was not found, deactivating FPGA target.")
+  elseif(NOT DEFINED ENV{XILINX_XRT})
+    # Xilinx XRT must be installed and properly setup
+    set(HAVE_FPGA 0)
+    message(WARNING " Xilinx XRT must be installed and setup (check its documentation), deactivating FPGA target.")
   else()
     set(HAVE_FPGA 1)
-    add_compile_options(-DPORTS_CONFIG=PORTS_2r_3r3w_ddr)  # selects the kernel's memory ports configuration; must be in sync with available kernel bitstream
-    add_compile_options(-DBDA_DEBUG_LEVEL=0)  # set debug messages level for FPGA library functions (should be set to 0 for Release build)
+    message(STATUS "FPGA library and kernel integration active.")
+
+    # FIXME: set the correct path to the FPGA module
+    set(FPGA_SOURCE_DIR ${opm-simulators_SOURCE_DIR}/../FPGA)
+
+    # configuration variables with default values: they can be overridden on the cmake command line
+    # FPGA_PORTS_CONFIG selects the kernel's memory ports configuration; must be in sync with available kernel bitstream
+    if(NOT FPGA_PORTS_CONFIG)
+      set(FPGA_PORTS_CONFIG 2r_3r3w_ddr)
+    endif()
+    # FPGA_DEBUG_LEVEL sets the debug messages level for FPGA library functions (should be set to 0 for Release build)
+    if(NOT FPGA_DEBUG_LEVEL)
+      set(FPGA_DEBUG_LEVEL 0)
+    endif()
+    message(STATUS "Using the following settings for the FPGA library compilation: "
+      "FPGA_PORTS_CONFIG=${FPGA_PORTS_CONFIG}, "
+      "FPGA_DEBUG_LEVEL=${FPGA_DEBUG_LEVEL}")
+    add_compile_options(-DPORTS_CONFIG=PORTS_${FPGA_PORTS_CONFIG})
+    add_compile_options(-DBDA_DEBUG_LEVEL=${FPGA_DEBUG_LEVEL})
     # include directories for the FPGA library
-    include_directories(${_modules_dir}/opm-simulators/opm/simulators/linalg/bda/fpga/src/sda_app)
-    include_directories(${_modules_dir}/opm-simulators/opm/simulators/linalg/bda/fpga/src/sda_app/common)
+    include_directories(${FPGA_SOURCE_DIR})
+    include_directories(${FPGA_SOURCE_DIR}/linearalgebra/ilu0bicgstab/xilinx/src/sda_app)
+    include_directories(${FPGA_SOURCE_DIR}/linearalgebra/ilu0bicgstab/xilinx/src/sda_app/common)
     # add external project to compile the FPGA library
     include (ExternalProject)
     ExternalProject_Add(FPGA_library
-      SOURCE_DIR ${_modules_dir}/opm-simulators/opm/simulators/linalg/bda/fpga/alveo_u280/vitis_20192/OPM-integration
-      BUILD_IN_SOURCE 1
       # force the build step to always be run because source dependencies cannot be made explicit
       BUILD_ALWAYS 1
       DOWNLOAD_COMMAND ""
       UPDATE_COMMAND ""
       CONFIGURE_COMMAND ""
       BUILD_COMMAND make
+        -f ${FPGA_SOURCE_DIR}/linearalgebra/ilu0bicgstab/xilinx/alveo_u280/vitis_20192/OPM-integration/makefile
+        SRCDIR=${FPGA_SOURCE_DIR}/linearalgebra/ilu0bicgstab/xilinx/src/sda_app
+        PORTS_CONFIG=${FPGA_PORTS_CONFIG}
+        DEBUG_LEVEL=${FPGA_DEBUG_LEVEL}
       INSTALL_COMMAND ""
       TEST_COMMAND ""
     )
   endif()
 endif()
-
-find_package(OpenCL)
 
 if(OpenCL_FOUND)
   # the current OpenCL implementation relies on cl.hpp, not cl2.hpp
@@ -476,10 +509,6 @@ endif()
 
 if(HAVE_FPGA)
   add_dependencies(opmsimulators FPGA_library)
-  target_link_libraries( opmsimulators PUBLIC ${_modules_dir}/opm-simulators/opm/simulators/linalg/bda/fpga/alveo_u280/vitis_20192/OPM-integration/fpga_lib_alveo_u280.a )
-  # link Xilinx-specific OpenCL library if OpenCL not found
-  if (NOT OpenCL_FOUND)
-    # used here is the default installation path for the library, change as needed
-    target_link_libraries( opmsimulators PUBLIC /opt/xilinx/xrt/lib/libxilinxopencl.so )
-  endif()
+  ExternalProject_Get_Property(FPGA_library binary_dir)
+  target_link_libraries(opmsimulators PUBLIC ${binary_dir}/fpga_lib_alveo_u280.a)
 endif()
