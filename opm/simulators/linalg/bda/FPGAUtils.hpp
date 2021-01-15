@@ -20,13 +20,6 @@
 #ifndef FPGA_UTILS_HEADER_INCLUDED
 #define FPGA_UTILS_HEADER_INCLUDED
 
-// define BDA_DEBUG_LEVEL to a value greater than 0 to activate debug printouts for some functions
-#if !defined (BDA_DEBUG_LEVEL)
-#define BDA_DEBUG_LEVEL 0
-#endif
-
-#define BDA_DEBUG(y,x) { if (y <= BDA_DEBUG_LEVEL) { x; fflush(NULL); } }
-
 namespace bda
 {
 

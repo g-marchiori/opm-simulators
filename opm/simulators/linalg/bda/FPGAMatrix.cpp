@@ -234,7 +234,7 @@ int matrixToRDF(Matrix *mat, int numColors, int *nodesPerColor,
     // colorSizes[0] = (int *)malloc(sizeof(int) * (6 + 4 * roundUpTo(numColors, 4)));
     // printf("ColorSizes pointer: %llx.\n", (unsigned long long int)colorSizes[0]);
     colorSizes[3] = colorValPointers[numColors];
-    // BDA_DEBUG(2, printf("Total valSize: %d.\n", colorValPointers[numColors]);)
+    // printf("Total valSize: %d.\n", colorValPointers[numColors]);
     colorSizes[5] = NRFlagsSize;
 
     for(c = 0; c < numColors; c++){
@@ -306,7 +306,7 @@ int matrixToRDF(Matrix *mat, int numColors, int *nodesPerColor,
                         if (readInterleaved) {
                             if((v-colorValPointers[c]+vb+1)%readBatchSize == 0){
                                 read_sel = !read_sel;
-                                //BDA_DEBUG(2, printf("INFO: %s: Flipping readSel in color %d after %d nnzValues.\n",__func__, c, v-colorValPointers[c]+vb+1);)
+                                //printf("INFO: %s: Flipping readSel in color %d after %d nnzValues.\n",__func__, c, v-colorValPointers[c]+vb+1);
                             }
                         }
                     }else{
@@ -404,9 +404,8 @@ int matrixToRDF(Matrix *mat, int numColors, int *nodesPerColor,
     free(v_array);
     free(vb_array);
 
-    //BDA_DEBUG(2, printf("The maximum nnzs per row is: %d.\n", maxNNZsPerRow);)
-
-    // BDA_DEBUG(2, printf("Done filling matrix arrays.\n");)
+    //printf("The maximum nnzs per row is: %d.\n", maxNNZsPerRow);
+    //printf("Done filling matrix arrays.\n");
 
     free(nnzRowsPerColor);
     free(rowOffsets);
