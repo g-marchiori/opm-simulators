@@ -140,8 +140,10 @@ if(ENABLE_FPGA)
   # must include opencl.h which is a wrapper for all the OpenCL extensions
   find_file(OPENCL_H CL/opencl.h HINTS ${OpenCL_INCLUDE_DIRS})
 
-  # FIXME: devise a check for the presence of the "FPGA" module; currently looking for makefile in <opm-simulators>/../FPGA
-  find_file(FPGA_MODULE linearalgebra/ilu0bicgstab/xilinx/alveo_u280/vitis_20192/OPM-integration/makefile HINTS ${opm-simulators_SOURCE_DIR}/../FPGA)
+  # User may set FPGA_SOURCE_DIR; if not set we assume that the source directory
+  # of the FPGA project is in the same directory as the one of opm-simulators
+  set(FPGA_SOURCE_DIR "${PROJECT_SOURCE_DIR}/../FPGA" CACHE FILEPATH "Source directory of OPM/FPGA project")
+  find_file(FPGA_MODULE linearalgebra/ilu0bicgstab/xilinx/alveo_u280/vitis_20192/OPM-integration/makefile HINTS ${FPGA_SOURCE_DIR})
 
   if(NOT OPENCL_H OR NOT OpenCL_FOUND)
     set(HAVE_FPGA 0)
@@ -156,9 +158,6 @@ if(ENABLE_FPGA)
   else()
     set(HAVE_FPGA 1)
     message(STATUS "FPGA library and kernel integration active.")
-
-    # FIXME: set the correct path to the FPGA module
-    set(FPGA_SOURCE_DIR ${opm-simulators_SOURCE_DIR}/../FPGA)
 
     # configuration variables with default values: they can be overridden on the cmake command line
     # FPGA_PORTS_CONFIG selects the kernel's memory ports configuration; must be in sync with available kernel bitstream
@@ -182,6 +181,7 @@ if(ENABLE_FPGA)
     include (ExternalProject)
     ExternalProject_Add(FPGA_library
       # force the build step to always be run because source dependencies cannot be made explicit
+      #compilation will nevertheless only happen if something changed in FPGA project
       BUILD_ALWAYS 1
       DOWNLOAD_COMMAND ""
       UPDATE_COMMAND ""
